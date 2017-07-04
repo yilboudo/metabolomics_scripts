@@ -1,6 +1,6 @@
 start.time <- proc.time()[3]
-options(echo = TRUE)
-options(warn=-1)
+#options(echo = TRUE)
+#options(warn=-1)
 library(batch)
 
 cat(" ################################# \n # \n # \n # \n # \n # Metabolomics Phenotype Association: \n # \n # Yann Ilboudo, Guillaume Lettre 2016 \n # \n #\n # \n ################################# \n")
@@ -91,19 +91,23 @@ minp_permutations <- function(phenotype,input_filename, testStat = "linear", NFM
   #Calculate test statistic for each permutations one for logistic one for linear
   cat(" \n \n ################################# \n # \n # Computing Permutation Matrix...\n # \n ################################# \n")
   if (testStat=="linear" && use.cov==F) {
+    linearReg_p <- function(y,x) coef(summary(glm(y ~ x ,family="gaussian")))[2,4]
 
     for (i in 1:Nperm) {permutations_pval[,i] <- sapply(Metabo_Pheno_File[,fmlist:lmlist], linearReg_p, y=sample(PofI, replace=F, size=length(PofI)))}
  
   } else if (testStat=="linear" && use.cov==T) {
-    
+
+    linearRegcov_p <- function(y,...) coef(summary(glm(y ~ . , data.frame(y,...) ,family="gaussian")))[2,4]    
     for (i in 1:Nperm) {permutations_pval[,i] <- sapply(Metabo_Pheno_File[,fmlist:lmlist], linearRegcov_p, y=sample(PofI, replace=F, size=length(PofI)), data=cov)}
 
   } else if (testStat=="logistic" && use.cov==F) {
+    logisticReg_p <- function(y,x) coef(summary(glm(y ~ x ,family="binomial")))[2,4]
 
     for (i in 1:Nperm) {permutations_pval[,i] <- sapply(Metabo_Pheno_File[,fmlist:lmlist], logisticReg_p, y=sample(PofI, replace=F, size=length(PofI)))}
   
   } else if (testStat=="logistic" && use.cov==T) {
 
+    logisticRegcov_p <- function(y,...) coef(summary(glm(y ~ . , data.frame(y,...) ,family="binomial")))[2,4]
     for (i in 1:Nperm) {permutations_pval[,i] <- sapply(Metabo_Pheno_File[,fmlist:lmlist], logisticRegcov_p, y=sample(PofI, replace=F, size=length(PofI)), data=cov)}
   
   } else {
@@ -154,6 +158,6 @@ minp_permutations <- function(phenotype,input_filename, testStat = "linear", NFM
     #if(print.time){
       print(paste("RUNNING TIME: ",   out.run.time, out.time.units, sep = " "))
     #}
-    quit()
+    #quit()
   #}
 }
