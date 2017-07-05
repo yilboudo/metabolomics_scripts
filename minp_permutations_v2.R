@@ -1,7 +1,7 @@
 rm(list =ls())
 start.time <- proc.time()[3]
-#options(echo = TRUE)
-#options(warn=-1)
+options(echo = TRUE)
+options(warn=-1)
 library(batch)
 cat(" ################################# \n # \n # \n # \n # \n # Metabolomics Phenotype Association: \n # \n # Yann Ilboudo, Guillaume Lettre 2016 \n # \n #\n # \n ################################# \n")
 
