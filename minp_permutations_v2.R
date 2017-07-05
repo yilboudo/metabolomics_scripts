@@ -1,30 +1,43 @@
+rm(list =ls())
 start.time <- proc.time()[3]
 #options(echo = TRUE)
 #options(warn=-1)
 library(batch)
-
 cat(" ################################# \n # \n # \n # \n # \n # Metabolomics Phenotype Association: \n # \n # Yann Ilboudo, Guillaume Lettre 2016 \n # \n #\n # \n ################################# \n")
 
 
-minp_permutations <- function(phenotype,input_filename, testStat = "linear", NFML, NLML, Nperm,output_filename, use.cov = F, cov_names, inv.norm=F)
+minp_permutations <- function(phenotype,input_filename, testStat = "linear", NFML, NLML, Nperm,output_filename, use.cov =F, cov_names, inv.norm=F)
 {
+
   set.seed(4)
   
   Metabo_Pheno_File<- read.table(input_filename, h=T, sep="\t")
+
+  Metabo_Pheno_File <- Metabo_Pheno_File[complete.cases(Metabo_Pheno_File[,which(colnames(Metabo_Pheno_File)==phenotype)]),]
+
+  invnorm <- function(x) 
+  {norm <- (x - mean(x ))/ sd(x) 
+   znorm<- qnorm((rank(norm,na.last="keep")-0.5)/sum(!is.na(norm)))
+   return(znorm)
+  }
+
   #Define Test Statistic and Phenotype of Interest. Pick which test statistic to run linear or logistic regression
+
+  if (inv.norm==T) { 
+    
+    PofI = invnorm(Metabo_Pheno_File[,which(colnames(Metabo_Pheno_File)==phenotype)])
   
-
-  PofI= Metabo_Pheno_File[,which(colnames(Metabo_Pheno_File)==phenotype)]
-
+  } else {
+    
+    PofI= Metabo_Pheno_File[,which(colnames(Metabo_Pheno_File)==phenotype)]
+  }
   
   #Name of first and last metabolite in file
   
   fmlist <- which(colnames(Metabo_Pheno_File)==NFML)
   lmlist <- which(colnames(Metabo_Pheno_File)==NLML)
 
-  covariates <- strsplit(cov_names, split=",")[[1]]
-
-  cov=Metabo_Pheno_File[,covariates]
+  
   
   if (use.cov==T && testStat =="linear") {
 
@@ -33,7 +46,10 @@ minp_permutations <- function(phenotype,input_filename, testStat = "linear", NFM
     linearRegcov_stderr <- function(y,...) coef(summary(glm(y ~ . , data.frame(y,...) ,family="gaussian")))[2,2]
     linearRegcov_effect <- function(y,...) coef(summary(glm(y ~ . , data.frame(y,...) ,family="gaussian")))[2,1]
     linearRegcov_samplesize <- function(y,...) nrow(model.frame(glm(y ~ . , data.frame(y,...) ,family="gaussian")))
-      
+    
+    covariates <- strsplit(cov_names, split=",")[[1]]
+    cov=Metabo_Pheno_File[,covariates]
+
     observed_pval <- sapply(Metabo_Pheno_File[,fmlist:lmlist], linearRegcov_p, y=PofI, data=cov)
     std_err <- sapply(Metabo_Pheno_File[,fmlist:lmlist], linearRegcov_stderr, y=PofI, data=cov)
     effect_size <- sapply(Metabo_Pheno_File[,fmlist:lmlist], linearRegcov_effect, y=PofI, data=cov)
@@ -45,7 +61,10 @@ minp_permutations <- function(phenotype,input_filename, testStat = "linear", NFM
     logisticRegcov_stderr <- function(y,...) coef(summary(glm(y ~ . , data.frame(y,...),family="binomial")))[2,2]
     logisticRegcov_effect <- function(y,...) coef(summary(glm(y ~ . , data.frame(y,...),family="binomial")))[2,1]
     logisticRegcov_samplesize <- function(y,...) nrow(model.frame(glm(y ~ . , data.frame(y,...),family="binomial")))
-      
+    
+    covariates <- strsplit(cov_names, split=",")[[1]]
+    cov=Metabo_Pheno_File[,covariates]
+
     observed_pval <- sapply(Metabo_Pheno_File[,fmlist:lmlist], logisticRegcov_p, y=PofI, data=cov)
     std_err <- sapply(Metabo_Pheno_File[,fmlist:lmlist], logisticRegcov_stderr, y=PofI, data=cov)
     effect_size <- sapply(Metabo_Pheno_File[,fmlist:lmlist], logisticRegcov_effect, y=PofI, data=cov)
@@ -77,7 +96,7 @@ minp_permutations <- function(phenotype,input_filename, testStat = "linear", NFM
 
     } else {
 
-      print("Zero. Nothing to do.")
+      print("NA")
     }
   
 
@@ -116,7 +135,7 @@ minp_permutations <- function(phenotype,input_filename, testStat = "linear", NFM
   }
 
   cat("\n")
-  cat(" Finished!\n\n")
+  cat(" ################################# \n # \n # Finished!\n # \n ################################# \n\n")
   #Store smallest pvalue for each rounds
   smallest_pval_per_round <- matrix(NA, 1,Nperm)
   for(i in 1:Nperm) {smallest_pval_per_round[,i] <- min(permutations_pval[,i])}
@@ -127,7 +146,9 @@ minp_permutations <- function(phenotype,input_filename, testStat = "linear", NFM
   #Empirical Pvalue and Permutation Pvalue
   emp_pval <- sapply(seq_along(fmlist:lmlist), function(x) mean(permutations_pval[x,] <= observed_pval[x]))
   
-  all_values<- cbind(sample_size,effect_size,std_err,observed_pval,emp_pval,t(pval_perm))
+  all_values<- cbind(sample_size, effect_size, std_err, observed_pval, emp_pval,t(pval_perm))
+
+  all_values <- apply(all_values,2, signif, digits=3)
   #format(all_metrics, scientific = F)
   
   #Write to file
@@ -147,7 +168,7 @@ minp_permutations <- function(phenotype,input_filename, testStat = "linear", NFM
       out.run.time <- round(running.time, digits = 2)
       out.time.units <- "seconds"
     }
-    if (running.time > 60 & running.time < 3600){
+    if (running.time > 60 && running.time < 3600){
       out.run.time <- round((running.time/60), digits = 2)
       out.time.units <- "minutes"
     }
