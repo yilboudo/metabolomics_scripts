@@ -1,8 +1,9 @@
 ####################################################################
 ####################################################################
-# This script calculates the p-values for associations 
-# between metabolites and phenotypes using linear or 
-# logistic regression. 
+# This script calculates association statistics  
+# between metabolites and a given phenotypes
+# using linear or logistic regression providing 
+# ajusted p-values in permutation procedure. 
 #
 #
 # The input data should contain both the metabolites data and 
@@ -25,7 +26,8 @@
 # testStat = "linear", 
 # NFML = "phenylalanine.d8", 
 # NLML = "C26.carnitine", 
-# Nperm = 100 )
+# Nperm = 100,
+# output_filename = "output.txt")
 #
 #
 # For Logistic Model
@@ -38,29 +40,8 @@
 # testStat = "logistic",
 # NFML = "phenylalanine.d8", 
 # NLML = "C26.carnitine", 
-# Nperm = 100 )
+# Nperm = 100 
+# output_filename = "output.txt")
 #
 ####################################################################
 ####################################################################
-
-rm(list=ls())
-source("minp_permutations.R")
-
-
-minp_permutations(
-  phenotype = "DRBC",
-  input_filename = "Genmod_Positive_Known_Regressed_Metabo_and_Traits4Assoc_April192016.txt",
-  testStat = "linear",
-  NFML = "phenylalanine.d8", 
-  NLML = "C26.carnitine", 
-  Nperm = 100, 
-  output_filename = "output.txt")
-
-minp_permutations(
-  phenotype = "Survival",
-  input_filename = "Genmod_Positive_Known_Regressed_Metabo_and_Traits4Assoc_April192016.txt",
-  testStat = "logistic",
-  NFML = "phenylalanine.d8", 
-  NLML = "C26.carnitine", 
-  Nperm = 100, 
-  output_filename = "SOMETHING_MAYBE.txt")

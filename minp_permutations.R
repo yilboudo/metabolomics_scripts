@@ -1,14 +1,10 @@
-rm(list =ls())
-start.time <- proc.time()[3]
-options(echo = TRUE)
-options(warn=-1)
-library(batch)
+
 cat(" ################################# \n # \n # \n # \n # \n # Metabolomics Phenotype Association: \n # \n # Yann Ilboudo, Guillaume Lettre 2016 \n # \n #\n # \n ################################# \n")
 
 
 minp_permutations <- function(phenotype,input_filename, testStat = "linear", NFML, NLML, Nperm,output_filename, use.cov =F, cov_names, inv.norm=F)
 {
-
+  start.time <- proc.time()[3]
   set.seed(4)
   
   Metabo_Pheno_File<- read.table(input_filename, h=T, sep="\t")
@@ -58,16 +54,18 @@ minp_permutations <- function(phenotype,input_filename, testStat = "linear", NFM
     } else if (use.cov == T && testStat=="logistic") {
 
     logisticRegcov_p <- function(y,...) coef(summary(glm(y ~ . , data.frame(y,...) ,family="binomial")))[2,4]
-    logisticRegcov_stderr <- function(y,...) coef(summary(glm(y ~ . , data.frame(y,...),family="binomial")))[2,2]
-    logisticRegcov_effect <- function(y,...) coef(summary(glm(y ~ . , data.frame(y,...),family="binomial")))[2,1]
+    logisticRegcov_effect <- function(y,...) exp(coef(summary(glm(y ~ . , data.frame(y,...),family="binomial")))[2,1])
+    logisticRegcov_confint_upper   <- function(y,...) exp(coef(summary(glm(y ~ . , data.frame(y,...),family="binomial")))[2,1] + (1.96*coef(summary(glm(y ~ . , data.frame(y,...),family="binomial")))[2,2])) 
+    logisticRegcov_confint_lower <- function(y,...) exp(coef(summary(glm(y ~ . , data.frame(y,...),family="binomial")))[2,1] - (1.96*coef(summary(glm(y ~ . , data.frame(y,...),family="binomial")))[2,2])) 
     logisticRegcov_samplesize <- function(y,...) nrow(model.frame(glm(y ~ . , data.frame(y,...),family="binomial")))
     
     covariates <- strsplit(cov_names, split=",")[[1]]
     cov=Metabo_Pheno_File[,covariates]
 
     observed_pval <- sapply(Metabo_Pheno_File[,fmlist:lmlist], logisticRegcov_p, y=PofI, data=cov)
-    std_err <- sapply(Metabo_Pheno_File[,fmlist:lmlist], logisticRegcov_stderr, y=PofI, data=cov)
-    effect_size <- sapply(Metabo_Pheno_File[,fmlist:lmlist], logisticRegcov_effect, y=PofI, data=cov)
+    confint_upper <- sapply(Metabo_Pheno_File[,fmlist:lmlist], logisticRegcov_confint_upper, y=PofI, data=cov)
+    confint_lower <- sapply(Metabo_Pheno_File[,fmlist:lmlist], logisticRegcov_confint_lower, y=PofI, data=cov)
+    odds_ratio <- sapply(Metabo_Pheno_File[,fmlist:lmlist], logisticRegcov_effect, y=PofI, data=cov)
     sample_size <- sapply(Metabo_Pheno_File[,fmlist:lmlist], logisticRegcov_samplesize, y=PofI, data=cov)
       
     } else if (use.cov == F && testStat=="linear") {
@@ -85,13 +83,15 @@ minp_permutations <- function(phenotype,input_filename, testStat = "linear", NFM
     } else if (use.cov == F && testStat=="logistic") {
 
     logisticReg_p <- function(y,x) coef(summary(glm(y ~ x ,family="binomial")))[2,4]
-    logisticReg_stderr <- function(y,x) coef(summary(glm(y ~ x ,family="binomial")))[2,2]
-    logisticReg_effect <- function(y,x) coef(summary(glm(y ~ x ,family="binomial")))[2,1]
+    logisticReg_confint_upper <- function(y,x) exp(coef(summary(glm(y ~ x ,family="binomial")))[2,1] + (1.96*coef(summary(glm(y ~ x , family="binomial")))[2,2]))
+    logisticReg_confint_lower <- function(y,x) exp(coef(summary(glm(y ~ x , family="binomial")))[2,1] - (1.96* coef(summary(glm(y ~ x , family="binomial")))[2,2]))
+    logisticReg_effect <- function(y,x) exp(coef(summary(glm(y ~ x , family="binomial")))[2,1])
     logisticReg_samplesize <- function(y,x) nrow(model.frame(glm(y ~ x ,family="binomial")))
     
     observed_pval <- sapply(Metabo_Pheno_File[,fmlist:lmlist], logisticReg_p, y=PofI)
-    std_err <- sapply(Metabo_Pheno_File[,fmlist:lmlist], logisticReg_stderr, y=PofI)
-    effect_size <- sapply(Metabo_Pheno_File[,fmlist:lmlist], logisticReg_effect, y=PofI)
+    confint_upper <- sapply(Metabo_Pheno_File[,fmlist:lmlist], logisticReg_confint_upper, y=PofI)
+    confint_lower <- sapply(Metabo_Pheno_File[,fmlist:lmlist], logisticReg_confint_lower, y=PofI)
+    odds_ratio <- sapply(Metabo_Pheno_File[,fmlist:lmlist], logisticReg_effect, y=PofI)
     sample_size <- sapply(Metabo_Pheno_File[,fmlist:lmlist], logisticReg_samplesize, y=PofI)
 
     } else {
@@ -103,7 +103,7 @@ minp_permutations <- function(phenotype,input_filename, testStat = "linear", NFM
 
 
 
-  #Define Number of metabolites and number of simulations
+  #Define Number of metabolites and number of permutations
   Nmetabo=length(fmlist:lmlist)
   permutations_pval <- matrix(NA,Nmetabo,Nperm)
   
@@ -144,9 +144,20 @@ minp_permutations <- function(phenotype,input_filename, testStat = "linear", NFM
   for (i in 1:Nmetabo) { pval_perm[,i] <- mean(smallest_pval_per_round <= observed_pval[i])}
   
   #Empirical Pvalue and Permutation Pvalue
-  emp_pval <- sapply(seq_along(fmlist:lmlist), function(x) mean(permutations_pval[x,] <= observed_pval[x]))
+  emp_pval <- sapply(seq_along(fmlist:lmlist), function(x) mean(permutations_pval[x,] <= observed_pval[x])) 
   
+  if (testStat=="logistic") {
+  
+  all_values<- cbind(sample_size, odds_ratio, confint_upper,confint_lower, observed_pval, emp_pval,t(pval_perm))
+
+    } else if (testStat=="linear") {
+
   all_values<- cbind(sample_size, effect_size, std_err, observed_pval, emp_pval,t(pval_perm))
+  
+  } else {
+
+    print("NA")
+  }
 
   all_values <- apply(all_values,2, signif, digits=3)
   #format(all_metrics, scientific = F)
@@ -154,15 +165,24 @@ minp_permutations <- function(phenotype,input_filename, testStat = "linear", NFM
   #Write to file
   Outputfile <- file(output_filename,'w')
   writeLines(paste("\t\t\t",phenotype), Outputfile)
-  writeLines(paste("Metabolites","Sample Size","Effect Size","Standard Error","Observed_pvalue","Empirical_pvalue","Permutation_pvalue",sep="\t"), Outputfile)
+  
+  if (testStat=="logistic") {
+
+    writeLines(paste("Metabolites","Sample Size","Odds Ratio","CI-U","CI-L","Observed_pvalue","Empirical_pvalue","Permutation_pvalue",sep="\t"), Outputfile)
+
+    
+  } else if (testStat=="linear") {
+
+    writeLines(paste("Metabolites","Sample Size","Effect Size","Standard Error","Observed_pvalue","Empirical_pvalue","Permutation_pvalue",sep="\t"), Outputfile)
+  
+  }  else {
+    print ("NA")
+  }
   write.table(all_values, file = Outputfile, quote = FALSE, row.names = TRUE, col.names = FALSE,sep="\t")
   close(Outputfile)
   cat(" ################################# \n # \n # Results Ready!\n # \n ################################# \n")
 
 
-  #if(print.time){
-  #cat(" ################################# \n # \n #   Print time \n # \n ################################# \n")
-    #}
     running.time <- proc.time()[3] - start.time 
     if (running.time < 60){
       out.run.time <- round(running.time, digits = 2)
@@ -176,9 +196,9 @@ minp_permutations <- function(phenotype,input_filename, testStat = "linear", NFM
       out.run.time <- round((running.time/3600), digits = 2)
       out.time.units <- "hours"
     }
-    #if(print.time){
+    
       print(paste("RUNNING TIME: ",   out.run.time, out.time.units, sep = " "))
-    #}
-    #quit()
-  #}
+    
+    q(status = 0)
+
 }
