@@ -1,4 +1,4 @@
-Explanation of the variables used in the function minp_permutations.R
+Brief explanation of the variables used in the function minp_permutations.R
 
 
 input_filename: Name of the your input file
@@ -19,5 +19,4 @@ NLML: Name of Last Metabolite in List, this is the column header corresponding
 
 Nperm: Number of permutations applied to the test statistic. 
 
-Note: All the metabolites in your table should be consecutive. They don't have to be in any particular order but, they all need to 
-follow each other in the table. 
+Note: All the metabolites columns in your table should follow each other. They don't have to be in any particular order. 
